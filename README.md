@@ -1,4 +1,4 @@
-# Shrine::Mongoid
+# Shrine::Plugins::Mongoid
 
 Provides [Mongoid] integration for [Shrine].
 
@@ -6,7 +6,6 @@ Provides [Mongoid] integration for [Shrine].
 
 ```ruby
 gem "shrine-mongoid"
-gem "shrine", github: "janko-m/shrine" # backgrounding support
 ```
 
 ## Usage
