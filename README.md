@@ -21,6 +21,9 @@ class Post
   field :image_data, type: String
 end
 ```
+
+This plugin will add validations and callbacks:
+
 ```rb
 post = Post.new
 post.image = file
@@ -29,6 +32,13 @@ post.save
 post.image.storage_key #=> "store"
 post.destroy
 post.image.exists?     #=> false
+```
+
+If for some reason you don't want callbacks and/or validations, you can turn
+them off:
+
+```rb
+plugin :mongoid, callbacks: false, validations: false
 ```
 
 ## Contributing

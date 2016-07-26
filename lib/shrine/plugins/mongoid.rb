@@ -3,31 +3,42 @@ require "mongoid"
 class Shrine
   module Plugins
     module Mongoid
+      def self.configure(uploader, opts = {})
+        uploader.opts[:mongoid_callbacks] = opts.fetch(:callbacks, uploader.opts.fetch(:mongoid_callbacks, true))
+        uploader.opts[:mongoid_validations] = opts.fetch(:validations, uploader.opts.fetch(:mongoid_validations, true))
+      end
+
       module AttachmentMethods
         def included(model)
           super
 
           return unless model < ::Mongoid::Document
 
-          model.class_eval <<-RUBY, __FILE__, __LINE__ + 1
-            validate do
-              #{@name}_attacher.errors.each do |message|
-                errors.add(:#{@name}, message)
+          if shrine_class.opts[:mongoid_validations]
+            model.class_eval <<-RUBY, __FILE__, __LINE__ + 1
+              validate do
+                #{@name}_attacher.errors.each do |message|
+                  errors.add(:#{@name}, message)
+                end
               end
-            end
+            RUBY
+          end
 
-            before_save do
-              #{@name}_attacher.save if #{@name}_attacher.attached?
-            end
+          if shrine_class.opts[:mongoid_callbacks]
+            model.class_eval <<-RUBY, __FILE__, __LINE__ + 1
+              before_save do
+                #{@name}_attacher.save if #{@name}_attacher.attached?
+              end
 
-            after_save do
-              #{@name}_attacher.finalize if #{@name}_attacher.attached?
-            end
+              after_save do
+                #{@name}_attacher.finalize if #{@name}_attacher.attached?
+              end
 
-            after_destroy do
-              #{@name}_attacher.destroy
-            end
-          RUBY
+              after_destroy do
+                #{@name}_attacher.destroy
+              end
+            RUBY
+          end
         end
       end
 
