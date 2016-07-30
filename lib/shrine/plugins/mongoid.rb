@@ -50,8 +50,6 @@ class Shrine
       end
 
       module AttacherMethods
-        private
-
         # Updates the current attachment with the new one, unless the current
         # attachment has changed.
         def swap(uploaded_file)
@@ -59,6 +57,8 @@ class Shrine
           super
         rescue ::Mongoid::Errors::DocumentNotFound
         end
+
+        private
 
         # We save the record after updating, raising any validation errors.
         def update(uploaded_file)
