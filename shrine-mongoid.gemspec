@@ -1,6 +1,6 @@
 Gem::Specification.new do |gem|
   gem.name          = "shrine-mongoid"
-  gem.version       = "0.2.1"
+  gem.version       = "0.2.2"
 
   gem.required_ruby_version = ">= 2.1"
 
@@ -14,7 +14,7 @@ Gem::Specification.new do |gem|
   gem.require_path = "lib"
 
   gem.add_dependency "shrine", "~> 2.0"
-  gem.add_dependency "mongoid", "~> 5.0"
+  gem.add_dependency "mongoid", ">= 5.0"
 
   gem.add_development_dependency "shrine-memory"
   gem.add_development_dependency "rake"
