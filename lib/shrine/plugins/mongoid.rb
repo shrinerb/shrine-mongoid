@@ -50,14 +50,6 @@ class Shrine
       end
 
       module AttacherMethods
-        # Updates the current attachment with the new one, unless the current
-        # attachment has changed.
-        def swap(uploaded_file)
-          return if record.send(:"#{name}_data") != record.reload.send(:"#{name}_data")
-          super
-        rescue ::Mongoid::Errors::DocumentNotFound
-        end
-
         private
 
         # We save the record after updating, raising any validation errors.

@@ -7,19 +7,20 @@ describe "the monogid plugin" do
   before do
     @uploader = uploader { plugin :mongoid }
 
-    user_class = Object.const_set("User", Class.new {
+    User = Class.new {
       include Mongoid::Document
       store_in collection: "users"
+      field :name, type: String
       field :avatar_data, type: String
-    })
-    user_class.include @uploader.class[:avatar]
+    }
+    User.include @uploader.class[:avatar]
 
-    @user = user_class.new
+    @user = User.new
     @attacher = @user.avatar_attacher
   end
 
   after do
-    @user.class.delete_all
+    User.delete_all
     Object.send(:remove_const, "User")
   end
 
@@ -66,39 +67,6 @@ describe "the monogid plugin" do
       @attacher.class.promote { |data| self.class.promote(data) }
       @user.update(avatar: fakeio)
       assert_equal "store", @user.reload.avatar.storage_key
-    end
-
-    it "is terminated when attachment changed before update" do
-      @attacher.instance_eval do
-        def swap(*)
-          record.class.update_all(avatar_data: nil)
-          super
-        end
-      end
-      @user.update(avatar: fakeio)
-      assert_equal nil, @user.reload.avatar
-    end
-
-    it "is terminated when record was deleted before update" do
-      @attacher.instance_eval do
-        def swap(*)
-          record.class.delete_all
-          super
-        end
-      end
-      @user.update(avatar: fakeio)
-    end
-
-    it "is terminated when record was deleted during update" do
-      @user.instance_eval do
-        def save(*)
-          if avatar && avatar.storage_key == "store"
-            self.class.delete_all
-          end
-          super
-        end
-      end
-      @user.update(avatar: fakeio)
     end
   end
 
@@ -160,7 +128,7 @@ describe "the monogid plugin" do
       @user.avatar_attacher.instance_variable_get("@f").resume
       @user = @user.class.new
 
-      @user.update(avatar_data: @user.avatar_attacher.store.upload(fakeio).to_json)
+      @user.update(avatar_data: @user.avatar_attacher.store!(fakeio).to_json)
       @user.destroy
       @user.avatar_attacher.instance_variable_get("@f").resume
     end
@@ -170,8 +138,21 @@ describe "the monogid plugin" do
       @attacher.class.promote { |data| @f = Fiber.new{self.class.promote(data)} }
       @user.update(avatar: fakeio)
       fiber = @user.avatar_attacher.instance_variable_get("@f")
-      @user.save
+      @user.update(name: "Name")
       assert_equal fiber, @user.avatar_attacher.instance_variable_get("@f")
+    end
+
+    it "doesn't overwrite column updates during background job" do
+      @uploader.class.plugin :backgrounding
+      @attacher.class.promote { |data| self.class.promote(data) }
+      @attacher.class.class_eval do
+        def swap(*)
+          record.class.update_all(name: "Name")
+          super
+        end
+      end
+      @user.update(avatar: fakeio)
+      assert_equal "Name", @user.reload.name
     end
   end
 
