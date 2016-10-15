@@ -57,6 +57,17 @@ class Shrine
           super
           record.save!
         end
+
+        def convert_before_write(value)
+          mongoid_hash_field? ? value : super
+        end
+
+        def mongoid_hash_field?
+          return false unless record.is_a?(::Mongoid::Document)
+          return false unless field = record.class.fields[data_attribute.to_s]
+
+          field.type == Hash
+        end
       end
     end
 

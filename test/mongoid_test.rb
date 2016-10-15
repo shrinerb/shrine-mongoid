@@ -123,6 +123,12 @@ describe "the monogid plugin" do
     end
   end
 
+  it "supports the attachment data field to be of type 'object'" do
+    @user.class.field :avatar_data, type: Hash
+    @user.update(avatar: fakeio)
+    @user.avatar.exists?
+  end
+
   it "works with backgrounding" do
     @uploader.class.plugin :backgrounding
     @attacher.class.promote { |data| self.class.promote(data) }
