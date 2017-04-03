@@ -16,7 +16,7 @@ Shrine.plugin :mongoid
 ```rb
 class Post
   include Mongoid::Document
-  include ImageUploader[:image]
+  include ImageUploader::Attachment.new(:image)
 
   field :image_data, type: String # or `type: Hash`
 end

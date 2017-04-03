@@ -13,7 +13,7 @@ describe "the monogid plugin" do
       field :name, type: String
       field :avatar_data, type: String
     }
-    User.include @uploader.class[:avatar]
+    User.include @uploader.class::Attachment.new(:avatar)
 
     @user = User.new
     @attacher = @user.avatar_attacher
@@ -153,6 +153,6 @@ describe "the monogid plugin" do
 
   it "allows including attachment model to non-Sequel objects" do
     klass = Struct.new(:avatar_data)
-    klass.include @uploader.class[:avatar]
+    klass.include @uploader.class::Attachment.new(:avatar)
   end
 end
