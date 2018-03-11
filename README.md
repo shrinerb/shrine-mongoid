@@ -54,4 +54,4 @@ $ bundle exec rake test
 [MIT](LICENSE.txt)
 
 [Mongoid]: https://github.com/mongodb/mongoid
-[Shrine]: https://github.com/janko-m/shrine
+[Shrine]: https://github.com/shrinerb/shrine
