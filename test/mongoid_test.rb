@@ -142,7 +142,7 @@ describe "the monogid plugin" do
   end
 
   it "returns nil when record is not found" do
-    assert_equal nil, @attacher.class.find_record(@user.class, "foo")
+    assert_nil @attacher.class.find_record(@user.class, "foo")
   end
 
   it "raises an appropriate exception when column is missing" do
