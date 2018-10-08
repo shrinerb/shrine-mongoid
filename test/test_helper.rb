@@ -2,7 +2,7 @@ require "bundler/setup"
 
 require "minitest/autorun"
 require "minitest/pride"
-require "mocha/mini_test"
+require "mocha/minitest"
 
 require "shrine"
 require "shrine/storage/memory"
