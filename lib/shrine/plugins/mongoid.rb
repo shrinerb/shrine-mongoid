@@ -47,6 +47,49 @@ class Shrine
         def find_record(record_class, record_id)
           record_class.where(id: record_id).first
         end
+
+        def load_record(data)
+          return super unless data["parent_record"]
+
+          _record_class, record_id = data["record"]
+
+          parent_record_class, parent_record_id,
+            parent_relation_name, parent_relation_type = data["parent_record"]
+
+          parent_record_class = Object.const_get(parent_record_class)
+          parent_record = find_record(parent_record_class, parent_record_id)
+
+          case parent_relation_type
+          when "embeds_one"
+            find_single_embedded_record(
+              parent_record, parent_relation_name, record_id
+            )
+          when "embeds_many"
+            find_embedded_record(parent_record, parent_relation_name, record_id)
+          else
+            super
+          end
+        end
+
+        private
+
+        def find_single_embedded_record(parent_record, relation_name, record_id)
+          # NOTE: perhaps it's good to check if record_id matches existing one
+          parent_record.public_send(relation_name) ||
+            parent_record.public_send("build_#{relation_name}") do |instance|
+              # so that the id is always included in file deletion logs
+              instance.singleton_class.send(:define_method, :id) { record_id }
+            end
+        end
+
+        def find_embedded_record(parent_record, relation_name, record_id)
+          relation = parent_record.public_send(relation_name)
+          relation.where(id: record_id).first ||
+            relation.build do |instance|
+              # so that the id is always included in file deletion logs
+              instance.singleton_class.send(:define_method, :id) { record_id }
+            end
+        end
       end
 
       module AttacherMethods
