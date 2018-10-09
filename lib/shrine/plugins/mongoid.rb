@@ -58,17 +58,18 @@ class Shrine
           parent_class = Object.const_get(parent_class)
           parent = find_record(parent_class, parent_id)
 
-          record =
-            if parent.public_send(relation_name).is_a?(Array)
-              find_embedded_record(parent, relation_name, record_id)
-            else
-              find_single_embedded_record(parent, relation_name, record_id)
-            end
-
-          record
+          find_embedded_record(parent, relation_name, record_id)
         end
 
         private
+
+        def find_embedded_record(parent, relation_name, record_id)
+          if parent.public_send(relation_name).is_a?(Array)
+            find_embedded_record_in_collection(parent, relation_name, record_id)
+          else
+            find_single_embedded_record(parent, relation_name, record_id)
+          end
+        end
 
         def find_single_embedded_record(parent, relation_name, record_id)
           # NOTE: perhaps it's good to check if record_id matches existing one
@@ -79,7 +80,7 @@ class Shrine
             end
         end
 
-        def find_embedded_record(parent, relation_name, record_id)
+        def find_embedded_record_in_collection(parent, relation_name, record_id)
           relation = parent.public_send(relation_name)
           relation.where(id: record_id).first ||
             relation.build do |instance|
