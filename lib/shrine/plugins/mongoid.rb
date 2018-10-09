@@ -91,6 +91,21 @@ class Shrine
       end
 
       module AttacherMethods
+        MONGOID_ASSOCIATION_NAME_METHOD =
+          ::Mongoid::VERSION[0] > "6" ? "association_name" : "metadata_name"
+
+        def dump
+          hash = super
+          if record.embedded?
+            hash["parent"] = [
+              record._parent.class.to_s,
+              record._parent.id.to_s,
+              record.public_send(MONGOID_ASSOCIATION_NAME_METHOD).to_s
+            ]
+          end
+          hash
+        end
+
         private
 
         # We save the record after updating, raising any validation errors.
