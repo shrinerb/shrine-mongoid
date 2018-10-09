@@ -53,37 +53,34 @@ class Shrine
 
           _record_class, record_id = data["record"]
 
-          parent_record_class, parent_record_id,
-            parent_relation_name, parent_relation_type = data["parent_record"]
+          parent_class, parent_id, relation_name = data["parent_record"]
 
-          parent_record_class = Object.const_get(parent_record_class)
-          parent_record = find_record(parent_record_class, parent_record_id)
+          parent_class = Object.const_get(parent_class)
+          parent = find_record(parent_class, parent_id)
 
-          case parent_relation_type
-          when "embeds_one"
-            find_single_embedded_record(
-              parent_record, parent_relation_name, record_id
-            )
-          when "embeds_many"
-            find_embedded_record(parent_record, parent_relation_name, record_id)
-          else
-            super
-          end
+          record =
+            if parent.public_send(relation_name).is_a?(Array)
+              find_embedded_record(parent, relation_name, record_id)
+            else
+              find_single_embedded_record(parent, relation_name, record_id)
+            end
+
+          record
         end
 
         private
 
-        def find_single_embedded_record(parent_record, relation_name, record_id)
+        def find_single_embedded_record(parent, relation_name, record_id)
           # NOTE: perhaps it's good to check if record_id matches existing one
-          parent_record.public_send(relation_name) ||
-            parent_record.public_send("build_#{relation_name}") do |instance|
+          parent.public_send(relation_name) ||
+            parent.public_send("build_#{relation_name}") do |instance|
               # so that the id is always included in file deletion logs
               instance.singleton_class.send(:define_method, :id) { record_id }
             end
         end
 
-        def find_embedded_record(parent_record, relation_name, record_id)
-          relation = parent_record.public_send(relation_name)
+        def find_embedded_record(parent, relation_name, record_id)
+          relation = parent.public_send(relation_name)
           relation.where(id: record_id).first ||
             relation.build do |instance|
               # so that the id is always included in file deletion logs

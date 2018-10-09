@@ -155,4 +155,64 @@ describe "the monogid plugin" do
     klass = Struct.new(:avatar_data)
     klass.include @uploader.class::Attachment.new(:avatar)
   end
+
+  describe "backgrounding for embedded records" do
+    before do
+      @uploader = uploader do
+        plugin :backgrounding
+        plugin :mongoid
+      end
+
+      EmbeddedDocument = Class.new {
+        include Mongoid::Document
+        embedded_in :user
+        field :title, type: String
+        field :file_data, type: String
+      }
+      EmbeddedDocument.include @uploader.class::Attachment.new(:file)
+
+      User.embeds_many :embedded_documents
+      User.embeds_one :passport, class_name: "EmbeddedDocument"
+
+      @user.save
+      @embedded_document = @user.embedded_documents.create(file: fakeio)
+      @embedded_document_attacher = @embedded_document.file_attacher
+
+      @passport = @user.create_passport(file: fakeio("passport"))
+    end
+
+    after do
+      Object.send(:remove_const, "EmbeddedDocument")
+    end
+
+    describe "Attacher.load_record" do
+
+      # FIXME: it's not a desirable behavior, there's no reason to initialize
+      #        embedded record without parent, it will never get saved anyway
+      it "initializes new instance when no parent_record given" do
+        assert @embedded_document.persisted?
+        loaded_record = @embedded_document_attacher.class.load_record(
+          "record" => ["EmbeddedDocument", @embedded_document.id.to_s]
+        )
+        assert loaded_record.new_record?
+        assert @embedded_document != loaded_record
+      end
+
+      it "finds embedded record when parent_record given" do
+        loaded_record = @embedded_document_attacher.class.load_record(
+          "record" => ["EmbeddedDocument", @embedded_document.id.to_s],
+          "parent_record" => ["User", @user.id.to_s, "embedded_documents"]
+        )
+        assert @embedded_document == loaded_record
+      end
+
+      it "finds embedded record when parent_record given for embeds_one" do
+        loaded_record = @embedded_document_attacher.class.load_record(
+          "record" => ["EmbeddedDocument", @embedded_document.id.to_s],
+          "parent_record" => ["User", @user.id.to_s, "passport"]
+        )
+        assert @passport == loaded_record
+      end
+    end
+  end
 end
