@@ -100,13 +100,17 @@ class Shrine
             hash["parent_record"] = [
               record._parent.class.to_s,
               record._parent.id.to_s,
-              record.public_send(MONGOID_ASSOCIATION_NAME_METHOD).to_s
+              record_association_name
             ]
           end
           hash
         end
 
         private
+
+        def record_association_name
+          record.public_send(MONGOID_ASSOCIATION_NAME_METHOD).to_s
+        end
 
         # We save the record after updating, raising any validation errors.
         def update(uploaded_file)
