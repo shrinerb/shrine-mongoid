@@ -179,6 +179,7 @@ describe "the monogid plugin" do
       @embedded_document_attacher = @embedded_document.file_attacher
 
       @passport = @user.create_passport(file: fakeio("passport"))
+      @passport_attacher = @passport.file_attacher
     end
 
     after do
@@ -212,6 +213,15 @@ describe "the monogid plugin" do
           "parent_record" => ["User", @user.id.to_s, "passport"]
         )
         assert @passport == loaded_record
+      end
+    end
+
+    describe "Attacher#dump" do
+      it "includes parent_record for embedded records" do
+        assert  @embedded_document_attacher.dump["parent_record"] ==
+                ["User", @user.id.to_s, "embedded_documents"]
+        assert  @passport_attacher.dump["parent_record"] ==
+                ["User", @user.id.to_s, "passport"]
       end
     end
   end

@@ -97,7 +97,7 @@ class Shrine
         def dump
           hash = super
           if record.embedded?
-            hash["parent"] = [
+            hash["parent_record"] = [
               record._parent.class.to_s,
               record._parent.id.to_s,
               record.public_send(MONGOID_ASSOCIATION_NAME_METHOD).to_s
