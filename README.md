@@ -49,6 +49,13 @@ You can run the tests with the Rake task:
 $ bundle exec rake test
 ```
 
+Also, to run tests against older versions of Mongoid:
+
+```
+$ bundle exec appraisal mongoid-5 rake test
+$ bundle exec appraisal mongoid-6 rake test
+```
+
 ## License
 
 [MIT](LICENSE.txt)
