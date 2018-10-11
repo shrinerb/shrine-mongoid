@@ -106,6 +106,19 @@ class Shrine
           hash
         end
 
+        def swap(new_file)
+          return super unless record.embedded?
+
+          relation = record._parent.reload.send(record_association_name)
+          reloaded =  if relation.is_a?(Array)
+                        relation.where(id: record.id).first
+                      else
+                        relation
+                      end
+          return if reloaded.nil? || self.class.new(reloaded, name).read != read
+          update(new_file)
+        end
+
         private
 
         def record_association_name
