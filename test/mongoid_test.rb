@@ -20,7 +20,7 @@ describe "the monogid plugin" do
   end
 
   after do
-    User.delete_all
+    User.destroy_all
     Object.send(:remove_const, "User")
   end
 
@@ -222,6 +222,58 @@ describe "the monogid plugin" do
                 ["User", @user.id.to_s, "embedded_documents"]
         assert  @passport_attacher.dump["parent_record"] ==
                 ["User", @user.id.to_s, "passport"]
+      end
+    end
+  end
+
+  describe "nested attributes support" do
+    before do
+      Photo = Class.new {
+        include Mongoid::Document
+        field :title, type: String
+        field :image_data, type: Hash
+      }
+      Photo.include @uploader.class::Attachment.new(:image)
+    end
+
+    after do
+      Object.send(:remove_const, "Photo")
+    end
+
+    describe "for referenced models" do
+      before do
+        Photo.store_in collection: "photos"
+        Photo.belongs_to :user
+        User.has_many :photos, dependent: :destroy
+        User.accepts_nested_attributes_for :photos, allow_destroy: true
+      end
+
+      it "stores files for nested models" do
+        user = User.create(
+          name: "Jacob",
+          photos_attributes: [{ image: fakeio }]
+        )
+        assert user.persisted?
+        photo = user.photos.first
+        assert photo.image_data["storage"] == "store"
+      end
+    end
+
+    describe "for embedded models" do
+      before do
+        Photo.embedded_in :user
+        User.embeds_many :photos
+        User.accepts_nested_attributes_for :photos, allow_destroy: true
+      end
+
+      it "stores files for nested models" do
+        user = User.create(
+          name: "Jacob",
+          photos_attributes: [{ image: fakeio }]
+        )
+        assert user.persisted?
+        photo = user.photos.first
+        assert photo.image_data["storage"] == "store"
       end
     end
   end
