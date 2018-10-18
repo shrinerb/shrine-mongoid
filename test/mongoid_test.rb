@@ -249,11 +249,10 @@ describe "the monogid plugin" do
       end
 
       it "stores files for nested models" do
-        user = User.create(
+        user = User.create!(
           name: "Jacob",
           photos_attributes: [{ image: fakeio }]
         )
-        assert user.persisted?
         photo = user.photos.first
         assert photo.image_data["storage"] == "store"
       end
@@ -267,11 +266,10 @@ describe "the monogid plugin" do
       end
 
       it "stores files for nested models" do
-        user = User.create(
+        user = User.create!(
           name: "Jacob",
           photos_attributes: [{ image: fakeio }]
         )
-        assert user.persisted?
         photo = user.photos.first
         assert photo.image_data["storage"] == "store"
       end
