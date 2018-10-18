@@ -52,6 +52,7 @@ $ bundle exec rake test
 Also, to run tests against older versions of Mongoid:
 
 ```
+$ bundle exec appraisal install
 $ bundle exec appraisal mongoid-5 rake test
 $ bundle exec appraisal mongoid-6 rake test
 ```
