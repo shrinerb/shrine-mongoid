@@ -265,11 +265,29 @@ describe "the monogid plugin" do
         User.accepts_nested_attributes_for :photos, allow_destroy: true
       end
 
-      it "stores files for nested models" do
-        user = User.create!(
-          name: "Jacob",
-          photos_attributes: [{ image: fakeio }]
-        )
+      # # NOTE: Mongoid does not trigger callbacks for embedded models,
+      # #   and for some reason even `cascade_callbacks` association option
+      # #  does not help, so this example will fail
+      # it "stores files for nested models" do
+      #   user = User.create!(
+      #     name: "Jacob",
+      #     photos_attributes: [{ image: fakeio }]
+      #   )
+      #   photo = user.photos.first
+      #   assert photo.image_data["storage"] == "store"
+      # end
+
+      it "stores files for nested models when manually re-saved & reloaded" do
+        user = User.create!(name: "Jacob")
+
+        user.photos_attributes =
+          [{ image: fakeio, _destroy: true }, { image: fakeio }]
+        user.save!
+
+        assert user.photos.size == 1
+
+        user.photos.each(&:save!)
+        user.reload
         photo = user.photos.first
         assert photo.image_data["storage"] == "store"
       end
