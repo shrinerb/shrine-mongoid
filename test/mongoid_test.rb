@@ -277,17 +277,12 @@ describe "the monogid plugin" do
       #   assert photo.image_data["storage"] == "store"
       # end
 
-      it "stores files for nested models when manually re-saved & reloaded" do
-        user = User.create!(name: "Jacob")
-
-        user.photos_attributes =
-          [{ image: fakeio, _destroy: true }, { image: fakeio }]
-        user.save!
-
-        assert user.photos.size == 1
+      it "stores files for manually re-saved & reloaded nested models" do
+        user = User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
 
         user.photos.each(&:save!)
         user.reload
+
         photo = user.photos.first
         assert photo.image_data["storage"] == "store"
       end
