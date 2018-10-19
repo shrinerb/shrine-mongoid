@@ -117,6 +117,7 @@ class Shrine
                       end
           return if reloaded.nil? || self.class.new(reloaded, name).read != read
           update(new_file)
+          new_file if new_file == get
         end
 
         private
