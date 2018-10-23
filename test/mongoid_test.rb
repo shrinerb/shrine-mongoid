@@ -188,15 +188,27 @@ describe "the monogid plugin" do
 
     describe "Attacher.load_record" do
 
-      # FIXME: it's not a desirable behavior, there's no reason to initialize
-      #        embedded record without parent, it will never get saved anyway
       it "initializes new instance when no parent_record given" do
         assert @embedded_document.persisted?
         loaded_record = @embedded_document_attacher.class.load_record(
           "record" => ["EmbeddedDocument", @embedded_document.id.to_s]
         )
         assert loaded_record.new_record?
-        assert @embedded_document != loaded_record
+        assert loaded_record != @embedded_document
+
+        assert loaded_record.id == @embedded_document.id.to_s
+      end
+
+      it "initializes new parent instance when parent_record does not exist" do
+        loaded_record = @embedded_document_attacher.class.load_record(
+          "record" => ["EmbeddedDocument", @embedded_document.id.to_s],
+          "parent_record" => ["User", "non-existing-id", "embedded_documents"]
+        )
+        assert loaded_record != @embedded_document
+        assert loaded_record.user.new_record?
+        assert loaded_record.user != @user
+
+        assert loaded_record.user.id == "non-existing-id"
       end
 
       it "finds embedded record when parent_record given" do
