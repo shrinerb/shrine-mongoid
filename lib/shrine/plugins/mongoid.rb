@@ -56,12 +56,20 @@ class Shrine
           parent_class, parent_id, relation_name = data["parent_record"]
 
           parent_class = Object.const_get(parent_class)
-          parent = find_record(parent_class, parent_id)
+          parent = load_parent_record(parent_class, parent_id)
 
           find_embedded_record(parent, relation_name, record_id)
         end
 
         private
+
+        def load_parent_record(parent_class, parent_id)
+          find_record(parent_class, parent_id) ||
+            parent_class.new do |instance|
+              # so that the id is always included in file deletion logs
+              instance.singleton_class.send(:define_method, :id) { parent_id }
+            end
+        end
 
         def find_embedded_record(parent, relation_name, record_id)
           if parent.public_send(relation_name).is_a?(Array)
