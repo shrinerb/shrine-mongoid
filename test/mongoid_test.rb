@@ -261,42 +261,43 @@ describe "the monogid plugin" do
       end
 
       it "stores files for nested models" do
-        user = User.create!(
-          name: "Jacob",
-          photos_attributes: [{ image: fakeio }]
-        )
+        user = User.create!(name: "Moe")
+        user.update!(photos_attributes: [{ image: fakeio }])
         photo = user.photos.first
         assert photo.image_data["storage"] == "store"
+      end
+
+      describe "and not yet existing parent" do
+        it "stores files for nested models" do
+          user =
+            User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
+          photo = user.photos.first
+          assert photo.image_data["storage"] == "store"
+        end
       end
     end
 
     describe "for embedded models" do
       before do
         Photo.embedded_in :user
-        User.embeds_many :photos
+        User.embeds_many :photos, cascade_callbacks: true
         User.accepts_nested_attributes_for :photos, allow_destroy: true
       end
 
-      # # NOTE: Mongoid does not trigger callbacks for embedded models,
-      # #   and for some reason even `cascade_callbacks` association option
-      # #  does not help, so this example will fail
-      # it "stores files for nested models" do
-      #   user = User.create!(
-      #     name: "Jacob",
-      #     photos_attributes: [{ image: fakeio }]
-      #   )
-      #   photo = user.photos.first
-      #   assert photo.image_data["storage"] == "store"
-      # end
-
-      it "stores files for manually re-saved & reloaded nested models" do
-        user = User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
-
-        user.photos.each(&:save!)
-        user.reload
-
+      it "stores files for nested models" do
+        user = User.create!(name: "Jacob")
+        user.update!(photos_attributes: [{ image: fakeio }])
         photo = user.photos.first
         assert photo.image_data["storage"] == "store"
+      end
+
+      describe "and not yet existing parent" do
+        it "stores files for nested models" do
+          user =
+            User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
+          photo = user.photos.first
+          assert photo.image_data["storage"] == "store"
+        end
       end
     end
   end

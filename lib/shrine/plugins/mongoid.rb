@@ -6,6 +6,7 @@ class Shrine
       def self.configure(uploader, opts = {})
         uploader.opts[:mongoid_callbacks] = opts.fetch(:callbacks, uploader.opts.fetch(:mongoid_callbacks, true))
         uploader.opts[:mongoid_validations] = opts.fetch(:validations, uploader.opts.fetch(:mongoid_validations, true))
+        Shrine::Plugins.load_plugin(:backgrounding)
       end
 
       module AttachmentMethods
@@ -116,28 +117,42 @@ class Shrine
 
         def swap(new_file)
           return super unless record.embedded?
+          parent = record._parent
 
-          relation = record._parent.reload.send(record_association_name)
-          reloaded =  if relation.is_a?(Array)
-                        relation.where(id: record.id).first
-                      else
-                        relation
-                      end
-          return if reloaded.nil? || self.class.new(reloaded, name).read != read
+          # NOTE: We check if parent is persisted, just in case it was
+          #       not found and initialized in place, so there will be
+          #       no exception on `reload`
+          if backgrounding_mode? && parent.persisted?
+            relation =  parent.reload.send(record_association_name)
+            reloaded =  if relation.is_a?(Array)
+                          relation.where(id: record.id).first
+                        else
+                          relation
+                        end
+            return if reloaded.nil? ||
+                      self.class.new(reloaded, name).read != read
+          end
           update(new_file)
           new_file if new_file == get
         end
 
         private
 
+        def backgrounding_mode?
+          self.class.ancestors.include?(
+            Shrine::Plugins::Backgrounding::AttacherMethods
+          )
+        end
+
         def record_association_name
           record.public_send(MONGOID_ASSOCIATION_NAME_METHOD).to_s
         end
 
-        # We save the record after updating, raising any validation errors.
+        # We save the record after updating, raising any validation errors,
+        # unless it is embedded record of not yet saved parent record.
         def update(uploaded_file)
           super
-          record.save!
+          record.save! unless record.embedded? && record._parent.new_record?
         end
 
         def convert_before_write(value)
