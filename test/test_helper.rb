@@ -6,19 +6,24 @@ require "mocha/minitest"
 
 require "shrine"
 require "shrine/storage/memory"
+require "mongoid"
 
 require "stringio"
 
-class Minitest::Spec
-  def uploader(storage_key = :store, &block)
-    uploader_class = Class.new(Shrine)
-    uploader_class.storages[:cache] = Shrine::Storage::Memory.new
-    uploader_class.storages[:store] = Shrine::Storage::Memory.new
-    uploader_class.class_eval(&block) if block
-    uploader_class.new(storage_key)
+Mongoid.load!("test/mongoid.yml", :test)
+
+class Minitest::Test
+  def fakeio(content = "file")
+    StringIO.new(content)
+  end
+end
+
+class RubySerializer
+  def self.dump(data)
+    data.to_s
   end
 
-  def fakeio(string = "")
-    StringIO.new(string)
+  def self.load(data)
+    eval(data)
   end
 end

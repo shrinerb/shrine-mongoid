@@ -13,10 +13,9 @@ Gem::Specification.new do |gem|
   gem.files        = Dir["README.md", "LICENSE.txt", "lib/**/*.rb", "*.gemspec"]
   gem.require_path = "lib"
 
-  gem.add_dependency "shrine", "~> 2.4"
+  gem.add_dependency "shrine", ">= 3.0.0.beta2", "< 4"
   gem.add_dependency "mongoid", ">= 5.0"
 
-  gem.add_development_dependency "shrine-memory"
   gem.add_development_dependency "rake"
   gem.add_development_dependency "minitest"
   gem.add_development_dependency "mocha"

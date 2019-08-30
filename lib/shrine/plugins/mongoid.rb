@@ -1,11 +1,18 @@
+# frozen_string_literal: true
+
 require "mongoid"
 
 class Shrine
   module Plugins
     module Mongoid
-      def self.configure(uploader, opts = {})
-        uploader.opts[:mongoid_callbacks] = opts.fetch(:callbacks, uploader.opts.fetch(:mongoid_callbacks, true))
-        uploader.opts[:mongoid_validations] = opts.fetch(:validations, uploader.opts.fetch(:mongoid_validations, true))
+      def self.load_dependencies(uploader, *)
+        uploader.plugin :model
+        uploader.plugin :_persistence, plugin: self
+      end
+
+      def self.configure(uploader, **opts)
+        uploader.opts[:mongoid] ||= { validations: true, callbacks: true }
+        uploader.opts[:mongoid].merge!(opts)
       end
 
       module AttachmentMethods
@@ -14,59 +21,81 @@ class Shrine
 
           return unless model < ::Mongoid::Document
 
-          if shrine_class.opts[:mongoid_validations]
-            model.class_eval <<-RUBY, __FILE__, __LINE__ + 1
-              validate do
-                #{@name}_attacher.errors.each do |message|
-                  errors.add(:#{@name}, message)
-                end
+          name = @name
+
+          if shrine_class.opts[:mongoid][:validations]
+            # add validation plugin integration
+            model.validate do
+              next unless send(:"#{name}_attacher").respond_to?(:errors)
+
+              send(:"#{name}_attacher").errors.each do |message|
+                errors.add(name, message)
               end
-            RUBY
+            end
           end
 
-          if shrine_class.opts[:mongoid_callbacks]
-            model.class_eval <<-RUBY, __FILE__, __LINE__ + 1
-              before_save do
-                #{@name}_attacher.save if #{@name}_attacher.attached?
+          if shrine_class.opts[:mongoid][:callbacks]
+            model.before_save do
+              if send(:"#{name}_attacher").changed?
+                send(:"#{name}_attacher").save
               end
+            end
 
-              after_save do
-                #{@name}_attacher.finalize if #{@name}_attacher.attached?
+            model.after_save do
+              if send(:"#{name}_attacher").changed?
+                send(:"#{name}_attacher").finalize
+                send(:"#{name}_attacher").persist
               end
+            end
 
-              after_destroy do
-                #{@name}_attacher.destroy
-              end
-            RUBY
+            model.after_destroy do
+              send(:"#{name}_attacher").destroy_attached
+            end
+          end
+
+          define_method :reload do |*args|
+            result = super(*args)
+            instance_variable_set(:"@#{name}_attacher", nil)
+            result
           end
         end
       end
 
-      module AttacherClassMethods
-        # Needed by the backgrounding plugin.
-        def find_record(record_class, record_id)
-          record_class.where(id: record_id).first
-        end
-      end
-
+      # The _persistence plugin uses #mongoid_persist, #mongoid_reload and
+      # #mongoid? to implement the following methods:
+      #
+      #   * Attacher#persist
+      #   * Attacher#atomic_persist
+      #   * Attacher#atomic_promote
       module AttacherMethods
         private
 
-        # We save the record after updating, raising any validation errors.
-        def update(uploaded_file)
-          super
-          record.save!
+        # Saves changes to the model instance, raising exception on validation
+        # errors. Used by the _persistence plugin.
+        def mongoid_persist
+          record.save(validate: false)
         end
 
-        def convert_before_write(value)
-          mongoid_hash_field? ? value : super
+        # Yields the reloaded record. Used by the _persistence plugin.
+        def mongoid_reload
+          record_copy    = record.dup
+          record_copy.id = record.id
+
+          yield record_copy.reload
         end
 
-        def mongoid_hash_field?
-          return false unless record.is_a?(::Mongoid::Document)
-          return false unless field = record.class.fields[data_attribute.to_s]
+        # Returns true if the data attribute represents a Hash field. Used by
+        # the _persistence plugin to determine whether serialization should be
+        # skipped.
+        def mongoid_hash_attribute?
+          field = record.class.fields[attribute.to_s]
+          field && field.type == Hash
+        end
 
-          field.type == Hash
+        # Returns whether the record is a Mongoid document. Used by the
+        # _persistence plugin.
+        def mongoid?
+          record.is_a?(::Mongoid::Document)
         end
       end
     end
