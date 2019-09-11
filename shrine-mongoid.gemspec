@@ -1,8 +1,8 @@
 Gem::Specification.new do |gem|
   gem.name          = "shrine-mongoid"
-  gem.version       = "0.2.4"
+  gem.version       = "1.0.0.beta"
 
-  gem.required_ruby_version = ">= 2.1"
+  gem.required_ruby_version = ">= 2.3"
 
   gem.summary      = "Provides Mongoid integration for Shrine."
   gem.homepage     = "https://github.com/shrinerb/shrine-mongoid"
