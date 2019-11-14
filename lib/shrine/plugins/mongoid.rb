@@ -100,7 +100,9 @@ class Shrine
           record_copy    = record.dup
           record_copy.id = record.id
 
-          yield record_copy.reload
+          record_copy.reload unless record_copy.embedded?
+
+          yield record_copy
         end
 
         # Returns true if the data attribute represents a Hash field. Used by

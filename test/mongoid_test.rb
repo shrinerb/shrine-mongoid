@@ -547,4 +547,99 @@ describe Shrine::Plugins::Mongoid do
       end
     end
   end
+
+  describe "child relations support" do
+    before do
+      User = @user.class
+      Photo = Class.new {
+        include Mongoid::Document
+        field :title, type: String
+        field :image_data, type: Hash
+      }
+      Photo.include @shrine::Attachment.new(:image)
+    end
+
+    after do
+      Object.send(:remove_const, "Photo")
+      Object.send(:remove_const, "User")
+    end
+
+    describe "nested attributes support" do
+      describe "for referenced models" do
+        before do
+          Photo.store_in collection: "photos"
+          Photo.belongs_to :user
+          User.has_many :photos, dependent: :destroy
+          User.accepts_nested_attributes_for :photos, allow_destroy: true
+        end
+
+        it "stores files for nested models" do
+          user = User.create!(name: "Moe")
+          user.update!(photos_attributes: [{ image: fakeio }])
+          photo = user.photos.first
+          assert photo.image_data["storage"] == "store"
+        end
+
+        describe "and not yet existing parent" do
+          it "stores files for nested models" do
+            user =
+              User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
+            photo = user.photos.first
+            assert photo.image_data["storage"] == "store"
+          end
+        end
+      end
+
+      describe "for embedded models" do
+        before do
+          Photo.embedded_in :user
+          User.embeds_many :photos, cascade_callbacks: true
+          User.accepts_nested_attributes_for :photos, allow_destroy: true
+        end
+
+        it "stores files for nested models" do
+          user = User.create!(name: "Jacob")
+          user.update!(photos_attributes: [{ image: fakeio }])
+          photo = user.photos.first
+          assert photo.image_data["storage"] == "store"
+        end
+
+        describe "and not yet existing parent" do
+          it "stores files for nested models" do
+            user = User.create!(name: "Moe",
+                                photos_attributes: [{ image: fakeio }])
+            photo = user.photos.first
+            assert photo.image_data["storage"] == :store
+          end
+        end
+      end
+    end
+
+
+    describe "(embedded)" do
+      before do
+        Photo.embedded_in :user
+        User.embeds_one :photo, cascade_callbacks: true
+      end
+
+      describe "Attacher" do
+        describe "#atomic_persist" do
+          it "persists the record" do
+            photo = Photo.new(user: @user)
+            attacher = @shrine::Attacher.from_model(photo, :image)
+
+            file = attacher.attach(fakeio)
+            photo.save
+
+            photo.title = "me"
+            attacher.atomic_persist
+
+            assert_equal "me", photo.title
+            assert_equal "me", @user.reload.photo.title
+            assert_equal file, attacher.file
+          end
+        end
+      end
+    end
+  end
 end
