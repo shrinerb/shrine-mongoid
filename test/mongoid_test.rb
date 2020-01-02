@@ -639,6 +639,22 @@ describe Shrine::Plugins::Mongoid do
             assert_equal file, attacher.file
           end
         end
+
+        describe "#atomic_promote" do
+          it "promotes cached file to permanent storage" do
+            photo = Photo.new(user: @user)
+            attacher = @shrine::Attacher.from_model(photo, :image)
+
+            attacher.attach_cached(fakeio)
+            photo.save
+
+            attacher.atomic_promote
+
+            assert attacher.stored?
+            attacher.reload
+            assert attacher.stored?
+          end
+        end
       end
     end
   end

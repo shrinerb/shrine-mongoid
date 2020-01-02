@@ -97,10 +97,18 @@ class Shrine
 
         # Yields the reloaded record. Used by the _persistence plugin.
         def mongoid_reload
-          record_copy    = record.dup
-          record_copy.id = record.id
-
-          record_copy.reload unless record_copy.embedded?
+          if record.embedded?
+            parent_copy    = record._parent.dup
+            parent_copy.id = record._parent.id
+            parent_copy.reload
+            record_copy = parent_copy._children.find do |child|
+              child.id == record.id
+            end
+          else
+            record_copy    = record.dup
+            record_copy.id = record.id
+            record_copy.reload
+          end
 
           yield record_copy
         end
