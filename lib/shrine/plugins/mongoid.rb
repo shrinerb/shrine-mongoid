@@ -102,7 +102,7 @@ class Shrine
             parent_copy.id = record._parent.id
             parent_copy.reload
             record_copy = parent_copy._children.find do |child|
-              child.id == record.id
+              child.id == record.id && child.class == record.class
             end
           else
             record_copy    = record.dup
