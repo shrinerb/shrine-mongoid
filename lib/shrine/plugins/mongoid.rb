@@ -35,10 +35,6 @@ class Shrine
               send(:"#{name}_attacher").send(:mongoid_before_save)
             end
 
-            model.after_save do
-              send(:"#{name}_attacher").send(:mongoid_after_save)
-            end
-
             model.after_destroy do
               send(:"#{name}_attacher").send(:mongoid_after_destroy)
             end
@@ -69,19 +65,13 @@ class Shrine
           end
         end
 
-        # Calls Attacher#save. Called before model save.
+        # Calls Attacher#save and finalizes attachment.
+        # Called before model save.
         def mongoid_before_save
           return unless changed?
 
           save
-        end
-
-        # Finalizes attachment and persists changes. Called after model save.
-        def mongoid_after_save
-          return unless changed?
-
           finalize
-          persist
         end
 
         # Deletes attached files. Called after model destroy.
@@ -89,25 +79,40 @@ class Shrine
           destroy_attached
         end
 
-        # Saves changes to the model instance, raising exception on validation
-        # errors. Used by the _persistence plugin.
+        # Saves changes to the model instance, skipping validation.
+        # Used by the _persistence plugin.
         def mongoid_persist
           record.save(validate: false)
         end
 
+        # Internal only
+        def _find_root_parent(record)
+          parent = record._parent
+          return parent unless parent.embedded?
+
+          _find_root_parent(parent)
+        end
+
+        # Internal only
+        def _copy_record_instance(record)
+          copy    = record.dup
+          copy.id = record.id
+          copy
+        end
+
         # Yields the reloaded record. Used by the _persistence plugin.
         def mongoid_reload
-          if record.embedded?
-            parent_copy    = record._parent.dup
-            parent_copy.id = record._parent.id
-            parent_copy.reload
-            record_copy = parent_copy._children.find do |child|
-              child.id == record.id && child.class == record.class
-            end
-          else
-            record_copy    = record.dup
-            record_copy.id = record.id
-            record_copy.reload
+          unless record.persisted?
+            return yield record
+          end
+
+          unless record.embedded?
+            return yield _copy_record_instance(record).reload
+          end
+
+          parent_copy = _copy_record_instance(_find_root_parent(record)).reload
+          record_copy = parent_copy._children.find do |child|
+            child.class == record.class && child.id == record.id
           end
 
           yield record_copy

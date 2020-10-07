@@ -551,11 +551,11 @@ describe Shrine::Plugins::Mongoid do
   describe "child relations support" do
     before do
       User = @user.class
-      Photo = Class.new {
+      Photo = Class.new do
         include Mongoid::Document
         field :title, type: String
         field :image_data, type: Hash
-      }
+      end
       Photo.include @shrine::Attachment.new(:image)
     end
 
@@ -576,21 +576,21 @@ describe Shrine::Plugins::Mongoid do
         it "stores files for nested models" do
           user = User.create!(name: "Moe")
           user.update!(photos_attributes: [{ image: fakeio }])
-          photo = user.photos.first
+          photo = user.reload.photos.first
           assert photo.image_data["storage"] == "store"
         end
 
-        describe "and not yet existing parent" do
+        describe "with not yet existing parent" do
           it "stores files for nested models" do
             user =
               User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
-            photo = user.photos.first
+            photo = user.reload.photos.first
             assert photo.image_data["storage"] == "store"
           end
         end
       end
 
-      describe "for embedded models" do
+      describe "for embedded (many) models" do
         before do
           Photo.embedded_in :user
           User.embeds_many :photos, cascade_callbacks: true
@@ -600,21 +600,44 @@ describe Shrine::Plugins::Mongoid do
         it "stores files for nested models" do
           user = User.create!(name: "Jacob")
           user.update!(photos_attributes: [{ image: fakeio }])
-          photo = user.photos.first
+          photo = user.reload.photos.first
           assert photo.image_data["storage"] == "store"
         end
 
-        describe "and not yet existing parent" do
+        describe "with not yet existing parent" do
           it "stores files for nested models" do
-            user = User.create!(name: "Moe",
-                                photos_attributes: [{ image: fakeio }])
-            photo = user.photos.first
-            assert photo.image_data["storage"] == :store
+            user =
+              User.create!(name: "Moe", photos_attributes: [{ image: fakeio }])
+            photo = user.reload.photos.first
+            assert photo.image_data["storage"] == "store"
+          end
+        end
+      end
+
+      describe "for embedded (one) model" do
+        before do
+          Photo.embedded_in :user
+          User.embeds_one :photo, cascade_callbacks: true
+          User.accepts_nested_attributes_for :photo, allow_destroy: true
+        end
+
+        it "stores files for nested model" do
+          user = User.create!(name: "Jacob")
+          user.update!(photo_attributes: { image: fakeio })
+          photo = user.reload.photo
+          assert photo.image_data["storage"] == "store"
+        end
+
+        describe "with not yet existing parent" do
+          it "stores files for nested model" do
+            user =
+              User.create!(name: "Moe", photo_attributes: { image: fakeio })
+            photo = user.reload.photo
+            assert photo.image_data["storage"] == "store"
           end
         end
       end
     end
-
 
     describe "(embedded)" do
       before do
@@ -629,13 +652,15 @@ describe Shrine::Plugins::Mongoid do
             attacher = @shrine::Attacher.from_model(photo, :image)
 
             file = attacher.attach(fakeio)
-            photo.save
+            photo.save!
 
             photo.title = "me"
             attacher.atomic_persist
 
+            photo = @user.reload.photo
+            attacher = @shrine::Attacher.from_model(photo, :image)
+
             assert_equal "me", photo.title
-            assert_equal "me", @user.reload.photo.title
             assert_equal file, attacher.file
           end
         end
@@ -646,7 +671,7 @@ describe Shrine::Plugins::Mongoid do
             attacher = @shrine::Attacher.from_model(photo, :image)
 
             attacher.attach_cached(fakeio)
-            photo.save
+            photo.save!
 
             attacher.atomic_promote
 
