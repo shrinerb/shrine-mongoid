@@ -5,12 +5,18 @@ require "mongoid"
 class Shrine
   module Plugins
     module Mongoid
+      VALID_FINALIZE_OPTS = [nil, :before_save, :after_save].freeze
+
       def self.load_dependencies(uploader, *)
         uploader.plugin :model
         uploader.plugin :_persistence, plugin: self
       end
 
       def self.configure(uploader, **opts)
+        unless VALID_FINALIZE_OPTS.include?(opts[:finalize])
+          fail ArgumentError, "valid finalize options: #{VALID_FINALIZE_OPTS}"
+        end
+
         uploader.opts[:mongoid] ||= { validations: true, callbacks: true }
         uploader.opts[:mongoid].merge!(opts)
       end
@@ -44,6 +50,10 @@ class Shrine
             end
           end
 
+          define_method :"#{name}_finalize" do
+            send(:"#{name}_attacher").finalize
+          end
+
           define_method :reload do |*args|
             result = super(*args)
             instance_variable_set(:"@#{name}_attacher", nil)
@@ -69,19 +79,22 @@ class Shrine
           end
         end
 
-        # Calls Attacher#save. Called before model save.
+        # Calls Attacher#save and finalizes attachment if so configured.
+        # Called before model save.
         def mongoid_before_save
           return unless changed?
 
           save
+          finalize if shrine_class.opts[:mongoid][:finalize] == :before_save
         end
 
-        # Finalizes attachment and persists changes. Called after model save.
+        # Finalizes attachment if so configured.
+        # Makes sense when used with the backgrounding plugin.
+        # Called after model save.
         def mongoid_after_save
           return unless changed?
 
-          finalize
-          persist
+          finalize if shrine_class.opts[:mongoid][:finalize] == :after_save
         end
 
         # Deletes attached files. Called after model destroy.
@@ -89,18 +102,43 @@ class Shrine
           destroy_attached
         end
 
-        # Saves changes to the model instance, raising exception on validation
-        # errors. Used by the _persistence plugin.
+        # Saves changes to the model instance, skipping validation.
+        # Used by the _persistence plugin.
         def mongoid_persist
           record.save(validate: false)
         end
 
+        # Internal only
+        def _find_root_parent(record)
+          parent = record._parent
+          return parent unless parent.embedded?
+
+          _find_root_parent(parent)
+        end
+
+        # Internal only
+        def _copy_record_instance(record)
+          copy    = record.dup
+          copy.id = record.id
+          copy
+        end
+
         # Yields the reloaded record. Used by the _persistence plugin.
         def mongoid_reload
-          record_copy    = record.dup
-          record_copy.id = record.id
+          unless record.persisted?
+            return yield record
+          end
 
-          yield record_copy.reload
+          unless record.embedded?
+            return yield _copy_record_instance(record).reload
+          end
+
+          parent_copy = _copy_record_instance(_find_root_parent(record)).reload
+          record_copy = parent_copy._children.find do |child|
+            child.class == record.class && child.id == record.id
+          end
+
+          yield record_copy
         end
 
         # Returns true if the data attribute represents a Hash field. Used by
