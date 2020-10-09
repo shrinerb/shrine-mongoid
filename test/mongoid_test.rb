@@ -7,7 +7,7 @@ describe Shrine::Plugins::Mongoid do
     @shrine.storages[:cache] = Shrine::Storage::Memory.new
     @shrine.storages[:store] = Shrine::Storage::Memory.new
 
-    @shrine.plugin :mongoid
+    @shrine.plugin :mongoid, finalize: :before_save
 
     user_class = Class.new
     user_class.include Mongoid::Document

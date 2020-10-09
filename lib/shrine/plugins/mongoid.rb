@@ -5,12 +5,18 @@ require "mongoid"
 class Shrine
   module Plugins
     module Mongoid
+      VALID_FINALIZE_OPTS = [nil, :before_save, :after_save].freeze
+
       def self.load_dependencies(uploader, *)
         uploader.plugin :model
         uploader.plugin :_persistence, plugin: self
       end
 
       def self.configure(uploader, **opts)
+        unless VALID_FINALIZE_OPTS.include?(opts[:finalize])
+          fail ArgumentError, "valid finalize options: #{VALID_FINALIZE_OPTS}"
+        end
+
         uploader.opts[:mongoid] ||= { validations: true, callbacks: true }
         uploader.opts[:mongoid].merge!(opts)
       end
@@ -35,9 +41,17 @@ class Shrine
               send(:"#{name}_attacher").send(:mongoid_before_save)
             end
 
+            model.after_save do
+              send(:"#{name}_attacher").send(:mongoid_after_save)
+            end
+
             model.after_destroy do
               send(:"#{name}_attacher").send(:mongoid_after_destroy)
             end
+          end
+
+          define_method :"#{name}_finalize" do
+            send(:"#{name}_attacher").finalize
           end
 
           define_method :reload do |*args|
@@ -65,13 +79,22 @@ class Shrine
           end
         end
 
-        # Calls Attacher#save and finalizes attachment.
+        # Calls Attacher#save and finalizes attachment if so configured.
         # Called before model save.
         def mongoid_before_save
           return unless changed?
 
           save
-          finalize
+          finalize if shrine_class.opts[:mongoid][:finalize] == :before_save
+        end
+
+        # Finalizes attachment if so configured.
+        # Makes sense when used with the backgrounding plugin.
+        # Called after model save.
+        def mongoid_after_save
+          return unless changed?
+
+          finalize if shrine_class.opts[:mongoid][:finalize] == :after_save
         end
 
         # Deletes attached files. Called after model destroy.
